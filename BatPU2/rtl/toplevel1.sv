@@ -1,11 +1,8 @@
 module toplevel1(
     input clk, clk_en, sync_rst
-    //input [7:0] switches,
-    //output [7:0] disp
+    input [7:0] switches,
+    output [7:0] disp
 );
-    wire [7:0] switches = 5;
-    wire [7:0] disp;
-
     reg [7:0] ram [254:0];
     reg [7:0] ram_buffer = 0;
     reg [7:0] dispreg = 0;
