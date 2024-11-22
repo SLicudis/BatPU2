@@ -14,7 +14,7 @@ module CPU(
     core core(
         .clk(clk), .clk_en(core_clk_en), .sync_rst(sync_rst),
         .inst_in(inst_bus), .data_in(data_in), .data_out(data_out), .data_address(data_address),
-        .inst_address(int_inst_address), .mem_we(mem_we), .mem_req(mem_req)
+        .inst_address(int_inst_address), .mem_we(mem_we), .mem_req(mem_req), .stall_proc(icache_busy)
     );
 
     wire icache_busy;

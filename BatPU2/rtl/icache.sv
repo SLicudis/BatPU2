@@ -19,7 +19,7 @@ module icache( //64 bytes, 4x8, 16-bit
     reg [15:0] out_reg = 0; //Output register for BRAM
 
     assign mreq = (busy_state || miss) && clk_en; //Memory requests are send when a miss happens
-    assign busy = (busy_state || miss) && clk_en; //The core must still output req to the cache, even tho it's stalled.
+    assign busy = busy_state && clk_en; //The core must still output req to the cache, even tho it's stalled.
     assign address_out = busy_state ? ({address_in[9:3], offs_pointer}+1) : {address_in[9:3], offs_pointer}; //Address for fetching
     assign inst_out = out_reg;
 

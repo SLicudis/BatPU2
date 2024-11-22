@@ -1,5 +1,5 @@
 module core(
-    input clk, clk_en, sync_rst,
+    input clk, clk_en, sync_rst, stall_proc,
     input [15:0] inst_in,
     input [7:0] data_in,
     output [7:0] data_out, data_address,
@@ -41,10 +41,11 @@ module core(
     wire [17:0] decode_ctr_word;
     wire [15:0] decode_inst_bus_out;
     wire [15:0] int_inst_in = initial_state ? inst_in : 16'h0;
+    wire invalid_decode = fetch_jmp || stall_proc;
 
     decode_stage decode_stage(
         .clk(clk), .clk_en(int_clk_en), .sync_rst(int_sync_rst),
-        .invalidate(fetch_jmp), .reg_we(decode_reg_we), .rd_addr(decode_rd_addr),
+        .invalidate(invalid_decode), .reg_we(decode_reg_we), .rd_addr(decode_rd_addr),
         .rd_in(decode_data_to_reg), .inst_bus(int_inst_in), .rs1(decode_rs1_out), .rs2(decode_rs2_out),
         .ctr_word(decode_ctr_word), .inst_bus_out(decode_inst_bus_out)
     );
