@@ -9,5 +9,6 @@ Pipeline diagram of the core:
 ![batpu2_pipeline](https://github.com/user-attachments/assets/d2ca48ab-e0b1-4e21-8a95-d0b6cb2b64ec)
 
 RTL view of the core: (Yellow is fetch, purple is decode, red is execute, orange is writeback)
-![image](https://github.com/user-attachments/assets/000a9b44-4bd3-425d-92d3-b4ba373fad12)
+![image](https://github.com/user-attachments/assets/5fab3850-6eae-47b9-8679-07e5e31a9c59)
+
 
