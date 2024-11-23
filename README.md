@@ -8,5 +8,6 @@ Specs:
 Pipeline diagram of the core:
 ![batpu2_pipeline](https://github.com/user-attachments/assets/d2ca48ab-e0b1-4e21-8a95-d0b6cb2b64ec)
 
-RTL view of the core:
-![image](https://github.com/user-attachments/assets/09773870-830c-4021-a296-2a5c4e9d8f49)
+RTL view of the core: (Yellow is fetch, purple is decode, red is execute, orange is writeback)
+![image](https://github.com/user-attachments/assets/000a9b44-4bd3-425d-92d3-b4ba373fad12)
+
