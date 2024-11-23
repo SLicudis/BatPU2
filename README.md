@@ -11,5 +11,6 @@ Pipeline diagram of the core:
 RTL view of the core: (Yellow is fetch, purple is decode, red is execute, orange is writeback)
 ![highlighted RTL](https://github.com/user-attachments/assets/076da8a2-10c3-4b58-b82d-f185674d7f02)
 
-
+Simulation of the fibonacci sequence:
+![image](https://github.com/user-attachments/assets/3c97f659-8ae4-452c-909b-cabd8549cbf5)
 
