@@ -1,68 +1,80 @@
-module icache( //64 bytes, 4x8, 16-bit
-    input clk, clk_en, req,
-    input [9:0] address_in,
-    input [15:0] from_mem,
-    output [15:0] inst_out,
-    output [9:0] address_out,
-    output busy, mreq
+module icache #(
+    parameter DATABITWIDTH = 16, //Word size
+    parameter ADDRESSWIDTH = 10, //Width of the address
+    parameter LINES = 4, //Amount of lines
+    parameter LINESIZE = 8, //Words per line
+
+    parameter IDXWIDTH = $clog2(LINES),
+    parameter OFFSWIDTH = $clog2(LINESIZE),
+    parameter CACHEAMT = LINES*LINESIZE
+)(
+    input clk, clk_en, sync_rst,
+    input req, //Request data
+    input inv, //Invalidate a line
+    input [DATABITWIDTH-1:0] data_in, //Data from memory
+    input [ADDRESSWIDTH-1:0] inst_addr, //Instruction address from the core
+    input [IDXWIDTH-1:0] inv_idx, //Invalidation address index from the core
+    output [DATABITWIDTH-1:0] data_out, //To the core
+    output [ADDRESSWIDTH-1:0] inst_addr_out, //Address to memory
+    output pre_busy, //Indicate if there was a cache miss (Before starting the protocol)
+    output busy //Indicate if it's on fetching mode
 );
-    reg [15:0] cache [31:0];
-    reg [5:0] tags [3:0]; //Valid bit: 4
-    reg [9:0] address_buffer = 0;
-    reg busy_state = 0;
-    wire miss = (tags[index] != {1'b1, address_in[9:5]}) && req; //Detect for cache miss if tags aren't matching.
+    reg [DATABITWIDTH-1:0] cache [CACHEAMT-1:0];
+    reg [DATABITWIDTH-1:0] output_buffer; //Output buffer to allow the use of BRAM
+    reg [ADDRESSWIDTH-IDXWIDTH-OFFSWIDTH:0] tags [LINES-1:0]; //The MSB indicates if the tag is valid or not
+    reg [ADDRESSWIDTH-1:0] address_buffer; //Safety address buffer in case of a miss
 
+    reg [1:0] state; //State machine register
+    typedef enum bit[1:0] {IDLE, START, FETCH, FINISH} states;
+    reg [OFFSWIDTH-1:0] offs_pointer;
 
-    wire [1:0] index = address_in[4:3]; //Tag index section of the reading address
-    wire [1:0] buffer_idx = address_buffer[4:3];
+    wire miss = (tags[inst_addr[IDXWIDTH+OFFSWIDTH-1:OFFSWIDTH]] != {1'b1, inst_addr[ADDRESSWIDTH-1:IDXWIDTH+OFFSWIDTH]}); //Compare tags
+    
+    wire [ADDRESSWIDTH-IDXWIDTH-OFFSWIDTH:0] tag_reset_array [LINES-1:0]; //This array only contains 0s and it's used for resetting the tags
+    genvar i;
+    generate
+        for(i = 0; i < IDXWIDTH; i++) begin : TagResetArray
+            assign tag_reset_array[i] = 0; //Assign each wire to 0
+        end
+    endgenerate
 
-    reg [2:0] offs_pointer = 0; //Points at the lower 4 bits of the address (For line offsets in fetching)
-    reg end_phase = 0; //Wait state 2
-
-    reg [15:0] out_reg = 0; //Output register for BRAM
-
-    assign mreq = (busy_state || miss) && clk_en; //Memory requests are send when a miss happens
-    assign busy = busy_state && clk_en; //The core must still output req to the cache, even tho it's stalled.
-    assign address_out = busy_state ? ({address_buffer[9:3], offs_pointer}+1) : {address_buffer[9:3], offs_pointer}; //Address for fetching
-    assign inst_out = out_reg;
-
-    always_ff @(posedge clk) begin : StateMachine
+    always_ff @(posedge clk) begin
         if(clk_en) begin
-            out_reg <= cache[address_in[4:0]]; //Update output register
-            if(!busy_state) begin   //Check stage
-                busy_state <= miss; //Set busy state if miss
-                end_phase <= 0; //Reset (just in case)
-                offs_pointer <= 0; //Reset (just in case)
-                address_buffer <= address_in;
-            end else if(!end_phase) begin //Fetch phases
-                tags[buffer_idx] <= {1'b1, address_buffer[9:5]}; //Update the tag
-                offs_pointer <= offs_pointer + 1; //Increment offset pointer for the next word
-                cache[{buffer_idx, offs_pointer}] <= from_mem; //Write the input word to cache
-                if(offs_pointer == 7) end_phase <= 1; //Start ending phase
-            end else if(end_phase) begin   //Ending phase of the cache
-                busy_state <= 0; //Reset busy state
-                end_phase <= 0;
-                offs_pointer <= 0; //Reset the offset pointer (just in case)
+            output_buffer <= cache[|busy ? address_buffer[IDXWIDTH+OFFSWIDTH-1:0] : inst_addr[IDXWIDTH+OFFSWIDTH-1:0]]; //Output buffer to allow the use of BRAM
+            if(sync_rst) begin //Reset protocol
+                tags <= tag_reset_array; //All the tags are reset
+                state <= 0;
+                offs_pointer <= 0;
+            end else begin
+                if(inv) tags[inv_idx] <= 0; //Invalidate a line
+                case(state) //State machine of the cache
+                IDLE: if(miss && req) begin
+                    state <= START;
+                    offs_pointer <= (2**OFFSWIDTH)-1;
+                    address_buffer <= inst_addr; //Update the address buffer (For safety reasons)
+                    end
+                START: begin
+                    state <= FETCH;
+                    offs_pointer <= 0;
+                    end
+                FETCH: begin
+                    offs_pointer <= offs_pointer + 1; //Increment the offset pointer
+                    cache[{address_buffer[IDXWIDTH+OFFSWIDTH-1:OFFSWIDTH], offs_pointer}] <= data_in; //Move the data to cache
+                    tags[address_buffer[IDXWIDTH+OFFSWIDTH-1:OFFSWIDTH]] <= {1'b1, address_buffer[ADDRESSWIDTH-1:IDXWIDTH+OFFSWIDTH]}; //Update the selected tag
+                    if(offs_pointer == (2**OFFSWIDTH)-1) state <= FINISH;
+                    end
+                FINISH: begin
+                    state <= 0;
+                    end
+                endcase
             end
         end
     end
-/*
-A cache miss stalls the core for 17 cycles
 
-INITIAL PHASE:
--busy_state is set, indicating that there's a cache miss and the CPU needs to be stalled
--offs_pointer is reset (just in case)
--ending_phase is reset (just in case)
-
-FETCHING PHASE:
--the old tag is replaced with the new one
--offs_pointer points at the line ofset in both cache and main memory.
--offs_poiinter increments and the input word is transfered to cache
--this phase takes 16 clock cycles
-
-ENDING PHASE:
--busy_state is reset
--offs_pointer is reset
-*/
+    assign inst_addr_out = {address_buffer[ADDRESSWIDTH-1:OFFSWIDTH], offs_pointer+1'b1};
+    assign data_out = output_buffer;
+    assign busy = |state;
+    assign pre_busy = miss && !busy;
 
 endmodule : icache
+
