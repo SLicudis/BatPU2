@@ -20,8 +20,10 @@ module CPU(
     wire icache_busy;
 
     icache icache(
-        .clk(clk), .clk_en(clk_en), .req(1'b1), .address_in(int_inst_address), .from_mem(inst_in),
-        .inst_out(inst_bus), .address_out(inst_address), .busy(icache_busy), .mreq(inst_mem_req)
+        .clk(clk), .clk_en(clk_en), .sync_rst(sync_rst), .req(1), .address_in(int_inst_address), .data_in(inst_in),
+        .data_out(inst_bus), .address_out(inst_address), .busy(icache_busy), .invalidate_address(0), .invalidate(0)
     );
+
+    assign inst_mem_req = icache_busy;
 
 endmodule : CPU
