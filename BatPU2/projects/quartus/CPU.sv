@@ -14,14 +14,16 @@ module CPU(
     core core(
         .clk(clk), .clk_en(core_clk_en), .sync_rst(sync_rst),
         .inst_in(inst_bus), .data_in(data_in), .data_out(data_out), .data_address(data_address),
-        .inst_address(int_inst_address), .mem_we(mem_we), .mem_req(mem_req)
+        .inst_address(int_inst_address), .mem_we(mem_we), .mem_req(mem_req), .stall_proc(icache_busy)
     );
 
     wire icache_busy;
 
     icache icache(
-        .clk(clk), .clk_en(clk_en), .req(1'b1), .address_in(int_inst_address), .from_mem(inst_in),
-        .inst_out(inst_bus), .address_out(inst_address), .busy(icache_busy), .mreq(inst_mem_req)
+        .clk(clk), .clk_en(clk_en), .sync_rst(sync_rst), .req(1), .address_in(int_inst_address), .data_in(inst_in),
+        .data_out(inst_bus), .address_out(inst_address), .busy(icache_busy), .invalidate_address(0), .invalidate(0)
     );
+
+    assign inst_mem_req = icache_busy;
 
 endmodule : CPU
